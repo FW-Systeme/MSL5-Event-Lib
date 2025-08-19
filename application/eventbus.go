@@ -32,3 +32,11 @@ func (bus EventRegistry) Await(typeId string) (interface{}, error) {
 	}
 	return <-ch, nil
 }
+
+func (bus EventRegistry) Listen(typeId string) (chan interface{}, error) {
+	ch, ok := bus.mem[typeId]
+	if !ok {
+		return nil, fmt.Errorf("no channel for typeId: %s", typeId)
+	}
+	return ch, nil
+}

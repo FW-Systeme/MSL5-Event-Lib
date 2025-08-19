@@ -8,6 +8,10 @@ type EventRegistry struct {
 	mem map[string]chan interface{}
 }
 
+func New() EventRegistry {
+	return EventRegistry{mem: make(map[string]chan interface{})}
+}
+
 func (bus EventRegistry) AddMew(typeId string) {
 	bus.mem[typeId] = make(chan interface{})
 }

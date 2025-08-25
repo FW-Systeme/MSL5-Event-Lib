@@ -50,7 +50,7 @@ func (bus EventRegistry) Listen(typeId string, receiver domain.Receiver) error {
 	go func(publisher chan interface{}) {
 		for {
 			event := <-publisher
-			receiver.Publish(event)
+			receiver(event)
 			if _, ok := event.(domain.TidyEvent); ok {
 				return
 			}

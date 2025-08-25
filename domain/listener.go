@@ -1,5 +1,3 @@
 package domain
 
-type Receiver interface {
-	Publish(event interface{}) error
-}
+type Receiver func(event interface{}) error

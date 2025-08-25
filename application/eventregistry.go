@@ -3,56 +3,58 @@ package application
 import (
 	"fmt"
 	"sync"
+
+	"github.com/FW-Systeme/MSL5-Event-Lib/domain"
 )
 
 type EventRegistry struct {
 	wg  *sync.WaitGroup
-	mem map[string]chan interface{}
+	mem map[string]map[chan interface{}]bool
 }
 
 func New() EventRegistry {
 	return EventRegistry{
-		mem: make(map[string]chan interface{}),
+		mem: make(map[string]map[chan interface{}]bool),
 		wg:  &sync.WaitGroup{}}
 }
 
-func (bus EventRegistry) AddMew(typeId string) {
-	bus.wg.Wait()
-	bus.wg.Add(1)
-	defer bus.wg.Done()
-	bus.mem[typeId] = make(chan interface{})
-}
-
-func (bus EventRegistry) Fire(typeId string, event interface{}) error {
-	bus.wg.Wait()
-	bus.wg.Add(1)
-	defer bus.wg.Done()
-	ch, ok := bus.mem[typeId]
+func (bus EventRegistry) Publish(typeId string, event interface{}) error {
+	chanMap, ok := bus.mem[typeId]
 	if !ok {
 		return fmt.Errorf("no subscriber for typeId: %s", typeId)
 	}
-	ch <- event
+	for channel := range chanMap {
+		go func() {
+			channel <- event
+		}()
+	}
 	return nil
 }
 
-func (bus EventRegistry) Await(typeId string) (interface{}, error) {
-	bus.wg.Wait()
-	bus.wg.Add(1)
-	defer bus.wg.Done()
-	ch, ok := bus.mem[typeId]
+func (bus EventRegistry) Listen(typeId string, receiver domain.Receiver) error {
+	channels, ok := bus.mem[typeId]
 	if !ok {
-		return nil, fmt.Errorf("no channel for typeId: %s", typeId)
+		bus.mem[typeId] = make(map[chan interface{}]bool)
 	}
-	return <-ch, nil
-}
-
-func (bus EventRegistry) Listen(typeId string) (chan interface{}, error) {
-	bus.wg.Wait()
-	bus.wg.Add(1)
-	defer bus.wg.Done()
-	ch, ok := bus.mem[typeId]
-	if !ok {
-		return nil, fmt.Errorf("no channel for typeId: %s", typeId)
+	var publisher chan interface{}
+	for channel, taken := range channels {
+		if !taken {
+			bus.mem[typeId][channel] = true
+			publisher = channel
+		}
 	}
-	return ch, nil
+	if publisher == nil {
+		publisher = make(chan interface{})
+		bus.mem[typeId][publisher] = true
+	}
+	go func(publisher chan interface{}) {
+		for {
+			event := <-publisher
+			receiver.Publish(event)
+			if _, ok := event.(domain.TidyEvent); ok {
+				return
+			}
+		}
+	}(publisher)
+	return nil
 }

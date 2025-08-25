@@ -32,7 +32,6 @@ func (bus EventRegistry) Fire(typeId string, event interface{}) error {
 		return fmt.Errorf("no subscriber for typeId: %s", typeId)
 	}
 	ch <- event
-	bus.wg.Done()
 	return nil
 }
 
